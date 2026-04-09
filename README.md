@@ -61,3 +61,35 @@ This repository is designed to be:
 - a comparison harness across SysML v2 tools
 - a support artifact for forum posts or bug reports
 - a stable baseline for testing current rendering capability
+
+## Results
+
+Validation currently succeeds with:
+
+```powershell
+syside check model/model.sysml model/view.sysml
+```
+
+Current rendering results with Syside:
+
+- `lampContextView`: renders successfully
+- `operateLampUseCaseView`: fails during SVG export with a Java `NullPointerException`
+- `turnLampOnUseCaseView`: renders successfully
+- `turnLampOffUseCaseView`: renders successfully
+- `lampStatesView`: renders successfully
+- `turnLampOnSequenceView`: fails during SVG export with a Java `NullPointerException`
+
+Observed interpretation:
+
+- structure rendering works
+- child use case rendering works
+- state rendering works
+- the top-level use case view currently fails in export
+- the sequence-style interaction view currently fails in export
+
+Generated SVGs currently present:
+
+- `output/views/diagram-lampContextView.svg`
+- `output/views/diagram-turnLampOnUseCaseView.svg`
+- `output/views/diagram-turnLampOffUseCaseView.svg`
+- `output/views/diagram-lampStatesView.svg`
