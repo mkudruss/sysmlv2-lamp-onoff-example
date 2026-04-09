@@ -1,0 +1,63 @@
+version: "3"
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+    silent: true
+
+  check:
+    desc: Validate the lamp example files
+    cmds:
+      - syside check model/model.sysml model/view.sysml
+
+  format:
+    desc: Format the lamp example files
+    cmds:
+      - syside format model/model.sysml model/view.sysml
+
+  clean:
+    desc: Remove generated view output
+    cmds:
+      - powershell -NoProfile -Command "if (Test-Path output/views) { Remove-Item output/views -Recurse -Force }"
+
+  view-context:
+    desc: Render the lamp context view
+    cmds:
+      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::lampContextView --output-dir output/views
+
+  view-usecase:
+    desc: Render the top-level lamp use case view
+    cmds:
+      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::operateLampUseCaseView --output-dir output/views
+
+  view-usecase-on:
+    desc: Render the turn lamp on child use case view
+    cmds:
+      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::turnLampOnUseCaseView --output-dir output/views
+
+  view-usecase-off:
+    desc: Render the turn lamp off child use case view
+    cmds:
+      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::turnLampOffUseCaseView --output-dir output/views
+
+  view-state:
+    desc: Render the lamp state view
+    cmds:
+      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::lampStatesView --output-dir output/views
+
+  view-sequence:
+    desc: Render the lamp sequence-style use case view
+    cmds:
+      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::turnLampOnSequenceView --output-dir output/views
+
+  views:
+    desc: Render all lamp example views in comparison order
+    cmds:
+      - task: view-context
+      - task: view-usecase
+      - task: view-usecase-on
+      - task: view-usecase-off
+      - task: view-state
+      - task: view-sequence
