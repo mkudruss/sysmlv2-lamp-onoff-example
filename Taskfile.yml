@@ -1,3 +1,8 @@
+# Baseline task runner for the minimal SysML v2 diagram-generation example.
+# Tested with:
+# - SysIDE Modeler CLI syside v0.8.6
+# - SysIDE Modeler VS Code v0.8.7
+
 version: "3"
 
 tasks:
@@ -17,47 +22,59 @@ tasks:
     cmds:
       - syside format model/model.sysml model/view.sysml
 
+  inner-loop:
+    desc: Run the baseline validation, formatting, and rendering loop
+    cmds:
+      - task: check
+      - task: format
+      - task: views-baseline
+
   clean:
     desc: Remove generated view output
     cmds:
       - powershell -NoProfile -Command "if (Test-Path output/views) { Remove-Item output/views -Recurse -Force }"
 
-  view-context:
-    desc: Render the lamp context view
+  view-context-nested:
+    desc: Render the lamp context view using nested rendering
     cmds:
-      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::lampContextView --output-dir output/views
+      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::lampContextNestedView --output-dir output/views
+
+  view-context-tree:
+    desc: Render the lamp context view using tree rendering
+    cmds:
+      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::lampContextTreeView --output-dir output/views
 
   view-usecase:
-    desc: Render the top-level lamp use case view
+    desc: Render the baseline top-level use case view
     cmds:
       - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::operateLampUseCaseView --output-dir output/views
 
-  view-usecase-on:
-    desc: Render the turn lamp on child use case view
-    cmds:
-      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::turnLampOnUseCaseView --output-dir output/views
-
-  view-usecase-off:
-    desc: Render the turn lamp off child use case view
-    cmds:
-      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::turnLampOffUseCaseView --output-dir output/views
-
   view-state:
-    desc: Render the lamp state view
+    desc: Render the baseline state-oriented view
     cmds:
       - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::lampStatesView --output-dir output/views
 
   view-sequence:
-    desc: Render the lamp sequence-style use case view
+    desc: Render the lamp sequence-style interaction view
     cmds:
       - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::turnLampOnSequenceView --output-dir output/views
 
-  views:
-    desc: Render all lamp example views in comparison order
+  view-sequence-off:
+    desc: Render the lamp turn-off sequence-style interaction view
     cmds:
-      - task: view-context
+      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::turnLampOffSequenceView --output-dir output/views
+
+  views-baseline:
+    desc: Render the published baseline views in comparison order
+    cmds:
+      - task: view-context-nested
+      - task: view-context-tree
       - task: view-usecase
-      - task: view-usecase-on
-      - task: view-usecase-off
       - task: view-state
       - task: view-sequence
+      - task: view-sequence-off
+
+  views:
+    desc: Render baseline views
+    cmds:
+      - task: views-baseline

@@ -1,95 +1,143 @@
-# Minimal SysML v2 Tooling Example
+# Minimal SysML v2 Diagram-Generation Baseline
 
-This repository is a compact SysML v2 reference project for checking what current tooling can parse, format, and render from a small but representative model.
+This repository is a small academic example for exploring the current diagram-generation capabilities of SysIDE.
 
-The example intentionally covers four classic diagram targets:
+It is the second iteration of the lamp example used in the related blog post.
+The first iteration was used to make a point about the current limitations and our initial misunderstanding of how to drive the renderer.
+After clarification in the Sensmetry forum, this version was reduced to a cleaner baseline that now produces results much closer to the blog-post target.
 
-- context / structure
+The repository focuses on one question:
+how far can current SysIDE diagram output be shaped through view construction?
+
+## Scope
+
+The example probes four targets:
+
+- structure
 - use case
+- state
 - sequence-style interaction
-- state behavior
 
-The goal is not domain modeling depth.
-The goal is to provide a clean, reproducible example that can be used to compare current behavior across tools such as Sensemetry Syside, SysON, and other SysML v2 implementations.
-
-## Repository Layout
-
-```text
-.
-├── README.md
-├── Taskfile.yml
-├── model
-│   ├── model.sysml
-│   └── view.sysml
-└── output
-    └── views
-```
-
-## Prerequisites
-
-The following tools are expected to be available on the machine:
-
-- `syside`
-- `task`
-
-When recording comparison results, also record the exact tool versions used.
+The model is intentionally small.
+The main experimental levers are in the views, not in domain complexity.
 
 ## Quick Start
 
 ```powershell
+task help
 task check
 task format
-task views
+task views-baseline
 ```
 
-## What the Example Covers
+## What This Example Shows
 
-`model/model.sysml` contains one minimal lamp model:
+`model/model.sysml` contains one minimal lamp model with focused slices for structure, use case, state, and interaction behavior.
 
-- `LampSystem` as the structural context
-- `'operate lamp'` as the top-level use case
-- `TurnLampOnSequence` as the interaction-style example
-- `lampStates` as the minimal state behavior example
+`model/view.sysml` contains the concrete exported views used to probe current rendering behavior.
 
-`model/view.sysml` contains the declared views used to render those elements.
+The structure baseline is represented twice for the same exposed content:
 
-## Intended Use
+- nested context view
+- tree context view
 
-This repository is designed to be:
+## Knobs to Play With
 
-- a small reproducible testcase
-- a comparison harness across SysML v2 tools
-- a support artifact for forum posts or bug reports
-- a stable baseline for testing current rendering capability
+The main knobs in this repository are:
 
-## Results
+- `expose`
+- `filter`
+- `render`
+- `depth`
+- `fileName`
+- `fileType`
+- `zoomLevel`
 
-Validation currently succeeds with:
+Practical guidance for this baseline:
 
-```powershell
-syside check model/model.sysml model/view.sysml
-```
+- use `expose` to control what the renderer can see
+- use `filter` to narrow visible content
+- use `render` to compare tree versus nested output
+- use `depth` carefully, especially for sequence-style views
+- set file-related attributes explicitly so exports are reproducible
 
-Current rendering results with Syside:
+For the formal definition of these knobs, see the official SysIDE views documentation in [References](#references).
 
-- `lampContextView`: renders successfully
-- `operateLampUseCaseView`: fails during SVG export with a Java `NullPointerException`
-- `turnLampOnUseCaseView`: renders successfully
-- `turnLampOffUseCaseView`: renders successfully
-- `lampStatesView`: renders successfully
-- `turnLampOnSequenceView`: fails during SVG export with a Java `NullPointerException`
+## Current Limitations
 
-Observed interpretation:
+This repository documents the limitations discussed in the blog post and observed in current SysIDE output:
 
-- structure rendering works
-- child use case rendering works
-- state rendering works
-- the top-level use case view currently fails in export
-- the sequence-style interaction view currently fails in export
+- styling freedom is limited by the current rendering stack
+- there is no separate polished sequence or state-diagram mode; those outputs are inferred from model shape
+- filtering does not hide compartments; for example, filtering documentation removes the node but not the documentation compartment
+- static CLI sequence arrows currently render left-to-right regardless of modeled `from` / `to` direction
+- sequence-style views are sensitive to `depth`; shallow traversal can collapse message structure
+- lifeline order is not currently deterministic or user-controlled
+- the state entry marker and some transition details are still imperfect
 
-Generated SVGs currently present:
+## Baseline Output Snapshots
 
-- `output/views/diagram-lampContextView.svg`
-- `output/views/diagram-turnLampOnUseCaseView.svg`
-- `output/views/diagram-turnLampOffUseCaseView.svg`
-- `output/views/diagram-lampStatesView.svg`
+<details>
+<summary><code>lampContextNestedView</code> -> <code>lamp-system-context-nested.png</code></summary>
+
+![lamp-system-context-nested](static/views/lamp-system-context-nested.png)
+
+</details>
+
+<details>
+<summary><code>lampContextTreeView</code> -> <code>lamp-system-context-tree.png</code></summary>
+
+![lamp-system-context-tree](static/views/lamp-system-context-tree.png)
+
+</details>
+
+<details>
+<summary><code>operateLampUseCaseView</code> -> <code>lamp-use-case.png</code></summary>
+
+![lamp-use-case](static/views/lamp-use-case.png)
+
+</details>
+
+<details>
+<summary><code>lampStatesView</code> -> <code>lamp-state-transition.png</code></summary>
+
+![lamp-state-transition](static/views/lamp-state-transition.png)
+
+</details>
+
+<details>
+<summary><code>turnLampOnSequenceView</code> -> <code>lamp-turn-on-sequence.png</code></summary>
+
+![lamp-turn-on-sequence](static/views/lamp-turn-on-sequence.png)
+
+</details>
+
+<details>
+<summary><code>turnLampOffSequenceView</code> -> <code>lamp-turn-off-sequence.png</code></summary>
+
+![lamp-turn-off-sequence](static/views/lamp-turn-off-sequence.png)
+
+</details>
+
+## References
+
+### Blog / discussion context
+
+- Related blog post: add link here
+- Sensmetry forum thread: Offline diagram generation
+
+### Official documentation
+
+- SysML v2 Views - Configurable attributes  
+  <https://docs.sensmetry.com/modeler/sysml-views.html#configurable-attributes>
+
+- SysML v2 Views - Understanding filters  
+  <https://docs.sensmetry.com/modeler/sysml-views.html#understanding-filters>
+
+### Standards
+
+- OMG KerML 1.0 - PDF  
+  <https://www.omg.org/spec/KerML/1.0/PDF>
+
+- OMG SysML 2.0 Language - PDF  
+  <https://www.omg.org/spec/SysML/2.0/Language/PDF>
