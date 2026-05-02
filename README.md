@@ -1,5 +1,13 @@
 # Minimal SysML v2 Diagram-Generation Baseline
 
+## Tested Tooling
+
+This baseline was recorded with:
+
+- SysIDE Modeler CLI `syside` v0.8.7
+
+When using newer SysIDE versions, rerun the checks and view exports to see whether model validation, formatting, and visualization output have improved.
+
 This repository is a small academic example for exploring the current diagram-generation capabilities of SysIDE.
 
 It is the second iteration of the lamp example used in the related blog post.
@@ -13,10 +21,10 @@ how far can current SysIDE diagram output be shaped through view construction?
 
 The example probes four targets:
 
-- structure
+- structure / context
 - use case
-- state
 - sequence-style interaction
+- state behavior
 
 The model is intentionally small.
 The main experimental levers are in the views, not in domain complexity.
@@ -27,12 +35,18 @@ The main experimental levers are in the views, not in domain complexity.
 task help
 task check
 task format
-task views-baseline
+task view
 ```
 
 ## What This Example Shows
 
-`model/model.sysml` contains one minimal lamp model with focused slices for structure, use case, state, and interaction behavior.
+`model/model.sysml` contains one minimal lamp example with focused modeling slices for structure, use case, state, and two interaction variants:
+
+- `LampSystem` as the structural context
+- `'operate lamp'` as the top-level use case
+- `TurnLampOnSeq` as the turn-on interaction example
+- `TurnLampOffSeq` as the turn-off interaction example
+- `lampStates` as the state-behavior example
 
 `model/view.sysml` contains the concrete exported views used to probe current rendering behavior.
 
@@ -40,6 +54,13 @@ The structure baseline is represented twice for the same exposed content:
 
 - nested context view
 - tree context view
+
+## How The Forum Guidance Is Applied In This Example
+
+- Context views: expose the same structural usage and vary rendering to compare nested versus tree output.
+- Use-case view: expose the root and direct children, use tree rendering, and limit depth to keep the result deterministic.
+- Sequence-style views: expose occurrence-based interactions directly and keep depth open so message structure is preserved.
+- State view: expose the state usage and its direct children to reduce generic library noise while keeping transitions visible.
 
 ## Knobs to Play With
 
@@ -76,6 +97,16 @@ This repository documents the limitations discussed in the blog post and observe
 - the state entry marker and some transition details are still imperfect
 
 ## Baseline Output Snapshots
+
+Use the fingerprint tasks to compare or refresh the committed PNG snapshots:
+
+```powershell
+task verify-static
+task fingerprint
+```
+
+`task verify-static` compares generated PNGs against `static/views` and fails on content mismatches.
+`task fingerprint` refreshes the SHA-256 manifests for `output/views` and `static/views`.
 
 <details>
 <summary><code>lampContextNestedView</code> -> <code>lamp-system-context-nested.png</code></summary>
@@ -118,6 +149,19 @@ This repository documents the limitations discussed in the blog post and observe
 ![lamp-turn-off-sequence](static/views/lamp-turn-off-sequence.png)
 
 </details>
+
+## Baseline Output Fingerprints
+
+<!-- baseline-fingerprints:start -->
+| View | File | SHA-256 |
+| --- | --- | --- |
+| `lampContextNestedView` | `static/views/lamp-system-context-nested.png` | `4659ec06bf3a42605d889e550d0b9ebc140604e56dc42165ef9c500566a6abb5` |
+| `lampContextTreeView` | `static/views/lamp-system-context-tree.png` | `6a416be5d06882b21a896b963aca38fde589a8d618d4fbeb3c0d7653aaba70cd` |
+| `operateLampUseCaseView` | `static/views/lamp-use-case.png` | `88444fa23fcb82e97f36ab6cd2bd1fb4512538ba3c5a0a04569e958b43313fa0` |
+| `lampStatesView` | `static/views/lamp-state-transition.png` | `24c094f949a7b2a933d924cd7be49dae758c42f9f2690f1971949e28286c3636` |
+| `turnLampOnSequenceView` | `static/views/lamp-turn-on-sequence.png` | `2575259408eb86387602b9acb64fa1206e660f51e48acbf79cf3e029736ac043` |
+| `turnLampOffSequenceView` | `static/views/lamp-turn-off-sequence.png` | `f41399d39f30973730b0503c062ededc3d74c200b775038a7178bdb92cf7afb3` |
+<!-- baseline-fingerprints:end -->
 
 ## References
 
