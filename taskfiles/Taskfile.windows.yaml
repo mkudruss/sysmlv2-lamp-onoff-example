@@ -28,28 +28,8 @@ tasks:
               throw ("Directory not found: " + $dir)
             }
 
-            $gitHash = "unknown"
-            try {
-              $gitHash = (git rev-parse HEAD).Trim()
-            } catch {
-              $gitHash = "not-a-git-repository"
-            }
-
-            $gitStatus = "unknown"
-            try {
-              $dirty = git status --porcelain
-              if ($dirty) {
-                $gitStatus = "dirty"
-              } else {
-                $gitStatus = "clean"
-              }
-            } catch {
-              $gitStatus = "not-a-git-repository"
-            }
-
             $dirPath = (Resolve-Path $dir).Path
             $manifestPath = Join-Path $dirPath $shaFile
-            $generatedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
             $files = Get-ChildItem $dirPath -File -Recurse |
               Where-Object { $_.Name -ne $shaFile } |
@@ -57,9 +37,6 @@ tasks:
 
             $lines = @()
             $lines += "# SHA256 manifest"
-            $lines += ("# generated_at_utc: " + $generatedAt)
-            $lines += ("# git_commit: " + $gitHash)
-            $lines += ("# git_status: " + $gitStatus)
             $lines += ("# source_dir: " + $dir)
             $lines += ("# file_count: " + $files.Count)
             $lines += "# format: sha256 | bytes | last_write_utc | relative_path"
@@ -78,6 +55,7 @@ tasks:
 
   verify-static:
     desc: Compare generated views against static reference views without regenerating
+    internal: true
     platforms: [windows]
     cmds:
       - task: sha-dir
@@ -115,32 +93,11 @@ tasks:
               return $rows
             }
 
-            function Read-Manifest-Header {
-              param(
-                [string]$Path,
-                [string]$Key
-              )
-
-              $prefix = "# " + $Key + ": "
-              $line = Get-Content $Path | Where-Object { $_.StartsWith($prefix) } | Select-Object -First 1
-
-              if (-not $line) {
-                return "unknown"
-              }
-
-              return $line.Substring($prefix.Length)
-            }
-
             $generatedManifest = Join-Path "{{.VIEWS_DIR}}" "{{.SHA_FILE}}"
             $staticManifest = Join-Path "{{.STATIC_VIEWS_DIR}}" "{{.SHA_FILE}}"
 
             $generated = Read-Manifest -Path $generatedManifest
             $static = Read-Manifest -Path $staticManifest
-
-            $generatedCommit = Read-Manifest-Header -Path $generatedManifest -Key "git_commit"
-            $staticCommit = Read-Manifest-Header -Path $staticManifest -Key "git_commit"
-            $generatedStatus = Read-Manifest-Header -Path $generatedManifest -Key "git_status"
-            $staticStatus = Read-Manifest-Header -Path $staticManifest -Key "git_status"
 
             $allPaths = @($generated.Keys + $static.Keys) | Sort-Object -Unique
 
@@ -199,25 +156,10 @@ tasks:
 
             Write-Host "Static reference manifest:"
             Write-Host ("  " + $staticManifest)
-            Write-Host ("  git_commit: " + $staticCommit)
-            Write-Host ("  git_status: " + $staticStatus)
             Write-Host ""
             Write-Host "Generated view manifest:"
             Write-Host ("  " + $generatedManifest)
-            Write-Host ("  git_commit: " + $generatedCommit)
-            Write-Host ("  git_status: " + $generatedStatus)
             Write-Host ""
-
-            if ($staticCommit -ne $generatedCommit) {
-              Write-Host "WARNING: Static and generated manifests were created from different Git commits."
-              Write-Host "         Content comparison is still valid, but correctness must be judged carefully."
-              Write-Host ""
-            }
-
-            if ($staticStatus -ne "clean" -or $generatedStatus -ne "clean") {
-              Write-Host "WARNING: At least one manifest was generated from a dirty working tree."
-              Write-Host ""
-            }
 
             if ($missingGenerated.Count -gt 0) {
               $hasFailure = $true

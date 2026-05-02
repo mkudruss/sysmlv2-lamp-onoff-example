@@ -33,10 +33,20 @@ The main experimental levers are in the views, not in domain complexity.
 
 ```powershell
 task help
-task check
 task format
-task view
+task check
+task views
 ```
+
+The practical inner loop is:
+
+```powershell
+task format
+task check
+task views
+```
+
+That sequence keeps formatting deterministic before validation and rendering.
 
 ## What This Example Shows
 
@@ -101,12 +111,18 @@ This repository documents the limitations discussed in the blog post and observe
 Use the fingerprint tasks to compare or refresh the committed PNG snapshots:
 
 ```powershell
+task format
+task check
+task views
 task verify-static
 task fingerprint
 ```
 
+`task views` renders the full current baseline.
+The individual `task view-*` tasks render one view at a time.
 `task verify-static` compares generated PNGs against `static/views` and fails on content mismatches.
 `task fingerprint` refreshes the SHA-256 manifests for `output/views` and `static/views`.
+The fingerprint and verification implementation is currently Windows-specific.
 
 <details>
 <summary><code>lampContextNestedView</code> -> <code>lamp-system-context-nested.png</code></summary>

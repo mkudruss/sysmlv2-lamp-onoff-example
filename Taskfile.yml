@@ -11,11 +11,13 @@ vars:
 includes:
   windows:
     taskfile: ./taskfiles/Taskfile.windows.yaml
+    internal: true
     optional: true
 
 tasks:
   default:
     desc: Show available tasks
+    aliases: ["help"]
     cmds:
       - task --list
     silent: true
@@ -29,21 +31,6 @@ tasks:
     desc: Format the lamp example files
     cmds:
       - syside format {{.MODEL_FILES}}
-
-  inner-loop:
-    desc: Run validation, formatting, rendering, and generated-view manifest update
-    cmds:
-      - task: check
-      - task: format
-      - task: view
-
-  clean:
-    desc: Remove generated view output
-    cmds:
-      - cmd: powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{{.VIEWS_DIR}}') { Remove-Item '{{.VIEWS_DIR}}' -Recurse -Force }"
-        platforms: [windows]
-      - cmd: echo "clean is not implemented for this platform." && exit 1
-        platforms: [linux, darwin]
 
   view-context-nested:
     desc: Render the lamp context view using nested rendering
@@ -75,7 +62,7 @@ tasks:
     cmds:
       - syside viz view {{.MODEL_FILES}} --qualified-name ExampleView::turnLampOffSequenceView --output-dir {{.VIEWS_DIR}}
 
-  view:
+  views:
     desc: Render the currently defined baseline views and update generated-view manifest
     cmds:
       - task: view-context-nested
@@ -86,26 +73,15 @@ tasks:
       - task: view-sequence-off
       - task: sha-generated
 
-  views:
-    desc: Render baseline views
-    cmds:
-      - task: view
-
-  sha-generated:
-    desc: Create SHA256 manifest for generated views
-    internal: true
-    cmds:
-      - task: windows:sha-dir
-        vars:
-          HASH_INPUT_DIR: "{{.VIEWS_DIR}}"
-
   sha-output:
     desc: Create SHA256 manifest for generated output views
+    internal: true
     cmds:
       - task: sha-generated
 
   sha-static:
     desc: Create SHA256 manifest for static reference views
+    internal: true
     cmds:
       - task: windows:sha-dir
         vars:
@@ -121,3 +97,19 @@ tasks:
     desc: Compare generated views against static reference views without regenerating
     cmds:
       - task: windows:verify-static
+
+  clean:
+    desc: Remove generated view output
+    cmds:
+      - cmd: powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{{.VIEWS_DIR}}') { Remove-Item '{{.VIEWS_DIR}}' -Recurse -Force }"
+        platforms: [windows]
+      - cmd: echo "clean is not implemented for this platform." && exit 1
+        platforms: [linux, darwin]
+
+  sha-generated:
+    desc: Create SHA256 manifest for generated views
+    internal: true
+    cmds:
+      - task: windows:sha-dir
+        vars:
+          HASH_INPUT_DIR: "{{.VIEWS_DIR}}"

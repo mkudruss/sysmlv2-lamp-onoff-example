@@ -1,7 +1,4 @@
 ﻿# SHA256 manifest
-# generated_at_utc: 2026-05-02T09:56:56Z
-# git_commit: ae09f2cb80b95c2de4f8fc2ce86cf9a6c225dc7d
-# git_status: dirty
 # source_dir: static/views
 # file_count: 6
 # format: sha256 | bytes | last_write_utc | relative_path
