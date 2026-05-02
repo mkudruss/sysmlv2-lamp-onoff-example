@@ -1,0 +1,257 @@
+version: "3"
+
+tasks:
+  sha-dir:
+    desc: Create SHA256 manifest for a view directory
+    internal: true
+    platforms: [windows]
+    cmds:
+      - cmd: |
+          powershell -NoProfile -ExecutionPolicy Bypass -Command '& {
+            $ErrorActionPreference = "Stop"
+
+            function Get-RelativePath {
+              param(
+                [string]$BasePath,
+                [string]$TargetPath
+              )
+
+              $baseUri = New-Object System.Uri(($BasePath.TrimEnd("\") + "\"))
+              $targetUri = New-Object System.Uri($TargetPath)
+              return $baseUri.MakeRelativeUri($targetUri).ToString()
+            }
+
+            $dir = "{{.HASH_INPUT_DIR}}"
+            $shaFile = "{{.SHA_FILE}}"
+
+            if (-not (Test-Path $dir)) {
+              throw ("Directory not found: " + $dir)
+            }
+
+            $gitHash = "unknown"
+            try {
+              $gitHash = (git rev-parse HEAD).Trim()
+            } catch {
+              $gitHash = "not-a-git-repository"
+            }
+
+            $gitStatus = "unknown"
+            try {
+              $dirty = git status --porcelain
+              if ($dirty) {
+                $gitStatus = "dirty"
+              } else {
+                $gitStatus = "clean"
+              }
+            } catch {
+              $gitStatus = "not-a-git-repository"
+            }
+
+            $dirPath = (Resolve-Path $dir).Path
+            $manifestPath = Join-Path $dirPath $shaFile
+            $generatedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+            $files = Get-ChildItem $dirPath -File -Recurse |
+              Where-Object { $_.Name -ne $shaFile } |
+              Sort-Object FullName
+
+            $lines = @()
+            $lines += "# SHA256 manifest"
+            $lines += ("# generated_at_utc: " + $generatedAt)
+            $lines += ("# git_commit: " + $gitHash)
+            $lines += ("# git_status: " + $gitStatus)
+            $lines += ("# source_dir: " + $dir)
+            $lines += ("# file_count: " + $files.Count)
+            $lines += "# format: sha256 | bytes | last_write_utc | relative_path"
+            $lines += ""
+
+            foreach ($file in $files) {
+              $relative = Get-RelativePath -BasePath $dirPath -TargetPath $file.FullName
+              $hash = (Get-FileHash $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+              $bytes = $file.Length
+              $lastWriteUtc = $file.LastWriteTimeUtc.ToString("yyyy-MM-ddTHH:mm:ssZ")
+              $lines += ($hash + " | " + $bytes + " | " + $lastWriteUtc + " | " + $relative)
+            }
+
+            Set-Content -Path $manifestPath -Value $lines -Encoding UTF8
+          }'
+
+  verify-static:
+    desc: Compare generated views against static reference views without regenerating
+    platforms: [windows]
+    cmds:
+      - task: sha-dir
+        vars:
+          HASH_INPUT_DIR: "{{.VIEWS_DIR}}"
+      - task: sha-dir
+        vars:
+          HASH_INPUT_DIR: "{{.STATIC_VIEWS_DIR}}"
+      - cmd: |
+          powershell -NoProfile -ExecutionPolicy Bypass -Command '& {
+            $ErrorActionPreference = "Stop"
+
+            function Read-Manifest {
+              param([string]$Path)
+
+              $rows = @{}
+
+              Get-Content $Path |
+                Where-Object { $_ -and -not $_.StartsWith("#") } |
+                ForEach-Object {
+                  $parts = $_ -split "\s+\|\s+", 4
+
+                  if ($parts.Count -ne 4) {
+                    throw ("Invalid manifest row in " + $Path + ": " + $_)
+                  }
+
+                  $rows[$parts[3]] = [PSCustomObject]@{
+                    Sha256 = $parts[0]
+                    Bytes = [Int64]$parts[1]
+                    LastWriteUtc = [DateTime]::Parse($parts[2]).ToUniversalTime()
+                    Path = $parts[3]
+                  }
+                }
+
+              return $rows
+            }
+
+            function Read-Manifest-Header {
+              param(
+                [string]$Path,
+                [string]$Key
+              )
+
+              $prefix = "# " + $Key + ": "
+              $line = Get-Content $Path | Where-Object { $_.StartsWith($prefix) } | Select-Object -First 1
+
+              if (-not $line) {
+                return "unknown"
+              }
+
+              return $line.Substring($prefix.Length)
+            }
+
+            $generatedManifest = Join-Path "{{.VIEWS_DIR}}" "{{.SHA_FILE}}"
+            $staticManifest = Join-Path "{{.STATIC_VIEWS_DIR}}" "{{.SHA_FILE}}"
+
+            $generated = Read-Manifest -Path $generatedManifest
+            $static = Read-Manifest -Path $staticManifest
+
+            $generatedCommit = Read-Manifest-Header -Path $generatedManifest -Key "git_commit"
+            $staticCommit = Read-Manifest-Header -Path $staticManifest -Key "git_commit"
+            $generatedStatus = Read-Manifest-Header -Path $generatedManifest -Key "git_status"
+            $staticStatus = Read-Manifest-Header -Path $staticManifest -Key "git_status"
+
+            $allPaths = @($generated.Keys + $static.Keys) | Sort-Object -Unique
+
+            $missingGenerated = @()
+            $missingStatic = @()
+            $contentMismatch = @()
+            $metadataMismatch = @()
+
+            foreach ($path in $allPaths) {
+              $hasGenerated = $generated.ContainsKey($path)
+              $hasStatic = $static.ContainsKey($path)
+
+              if (-not $hasGenerated) {
+                $missingGenerated += $path
+                continue
+              }
+
+              if (-not $hasStatic) {
+                $missingStatic += $path
+                continue
+              }
+
+              $g = $generated[$path]
+              $s = $static[$path]
+
+              if ($g.Sha256 -ne $s.Sha256) {
+                $relation = "same timestamp"
+
+                if ($g.LastWriteUtc -gt $s.LastWriteUtc) {
+                  $relation = "generated newer than static"
+                } elseif ($g.LastWriteUtc -lt $s.LastWriteUtc) {
+                  $relation = "static newer than generated"
+                }
+
+                $contentMismatch += [PSCustomObject]@{
+                  Path = $path
+                  StaticSha256 = $s.Sha256
+                  GeneratedSha256 = $g.Sha256
+                  StaticBytes = $s.Bytes
+                  GeneratedBytes = $g.Bytes
+                  StaticLastWriteUtc = $s.LastWriteUtc.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                  GeneratedLastWriteUtc = $g.LastWriteUtc.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                  TimestampRelation = $relation
+                }
+              } elseif ($g.Bytes -ne $s.Bytes) {
+                $metadataMismatch += [PSCustomObject]@{
+                  Path = $path
+                  Reason = "Same SHA256 but different byte count; this should not normally happen."
+                  StaticBytes = $s.Bytes
+                  GeneratedBytes = $g.Bytes
+                }
+              }
+            }
+
+            $hasFailure = $false
+
+            Write-Host "Static reference manifest:"
+            Write-Host ("  " + $staticManifest)
+            Write-Host ("  git_commit: " + $staticCommit)
+            Write-Host ("  git_status: " + $staticStatus)
+            Write-Host ""
+            Write-Host "Generated view manifest:"
+            Write-Host ("  " + $generatedManifest)
+            Write-Host ("  git_commit: " + $generatedCommit)
+            Write-Host ("  git_status: " + $generatedStatus)
+            Write-Host ""
+
+            if ($staticCommit -ne $generatedCommit) {
+              Write-Host "WARNING: Static and generated manifests were created from different Git commits."
+              Write-Host "         Content comparison is still valid, but correctness must be judged carefully."
+              Write-Host ""
+            }
+
+            if ($staticStatus -ne "clean" -or $generatedStatus -ne "clean") {
+              Write-Host "WARNING: At least one manifest was generated from a dirty working tree."
+              Write-Host ""
+            }
+
+            if ($missingGenerated.Count -gt 0) {
+              $hasFailure = $true
+              Write-Host "Files present in static reference views but missing from generated views:"
+              $missingGenerated | ForEach-Object { Write-Host ("  " + $_) }
+              Write-Host ""
+            }
+
+            if ($missingStatic.Count -gt 0) {
+              $hasFailure = $true
+              Write-Host "Files present in generated views but missing from static reference views:"
+              $missingStatic | ForEach-Object { Write-Host ("  " + $_) }
+              Write-Host ""
+            }
+
+            if ($contentMismatch.Count -gt 0) {
+              $hasFailure = $true
+              Write-Host "Files with content mismatch:"
+              $contentMismatch | Format-Table -AutoSize
+              Write-Host ""
+            }
+
+            if ($metadataMismatch.Count -gt 0) {
+              $hasFailure = $true
+              Write-Host "Files with metadata inconsistency:"
+              $metadataMismatch | Format-Table -AutoSize
+              Write-Host ""
+            }
+
+            if ($hasFailure) {
+              Write-Host "Result: generated views are NOT content-wise identical to static reference views."
+              Write-Host "Policy: static/views is the authoritative baseline unless deliberately refreshed."
+              exit 1
+            }
+
+            Write-Host "Result: generated views are content-wise identical to static reference views."
+          }'

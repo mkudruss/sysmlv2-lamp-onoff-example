@@ -1,0 +1,14 @@
+﻿# SHA256 manifest
+# generated_at_utc: 2026-05-02T09:56:56Z
+# git_commit: ae09f2cb80b95c2de4f8fc2ce86cf9a6c225dc7d
+# git_status: dirty
+# source_dir: static/views
+# file_count: 6
+# format: sha256 | bytes | last_write_utc | relative_path
+
+24c094f949a7b2a933d924cd7be49dae758c42f9f2690f1971949e28286c3636 | 24069 | 2026-04-15T23:26:00Z | lamp-state-transition.png
+4659ec06bf3a42605d889e550d0b9ebc140604e56dc42165ef9c500566a6abb5 | 31920 | 2026-04-16T10:47:58Z | lamp-system-context-nested.png
+6a416be5d06882b21a896b963aca38fde589a8d618d4fbeb3c0d7653aaba70cd | 28809 | 2026-04-16T10:47:49Z | lamp-system-context-tree.png
+f41399d39f30973730b0503c062ededc3d74c200b775038a7178bdb92cf7afb3 | 24232 | 2026-05-02T09:41:31Z | lamp-turn-off-sequence.png
+2575259408eb86387602b9acb64fa1206e660f51e48acbf79cf3e029736ac043 | 24088 | 2026-05-02T09:41:42Z | lamp-turn-on-sequence.png
+88444fa23fcb82e97f36ab6cd2bd1fb4512538ba3c5a0a04569e958b43313fa0 | 41684 | 2026-05-02T09:41:34Z | lamp-use-case.png

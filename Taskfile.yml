@@ -1,9 +1,17 @@
 # Baseline task runner for the minimal SysML v2 diagram-generation example.
-# Tested with:
-# - SysIDE Modeler CLI syside v0.8.6
-# - SysIDE Modeler VS Code v0.8.7
 
 version: "3"
+
+vars:
+  MODEL_FILES: model/model.sysml model/view.sysml
+  VIEWS_DIR: output/views
+  STATIC_VIEWS_DIR: static/views
+  SHA_FILE: SHA256SUMS.txt
+
+includes:
+  windows:
+    taskfile: ./taskfiles/Taskfile.windows.yaml
+    optional: true
 
 tasks:
   default:
@@ -15,57 +23,60 @@ tasks:
   check:
     desc: Validate the lamp example files
     cmds:
-      - syside check model/model.sysml model/view.sysml
+      - syside check {{.MODEL_FILES}}
 
   format:
     desc: Format the lamp example files
     cmds:
-      - syside format model/model.sysml model/view.sysml
+      - syside format {{.MODEL_FILES}}
 
   inner-loop:
-    desc: Run the baseline validation, formatting, and rendering loop
+    desc: Run validation, formatting, rendering, and generated-view manifest update
     cmds:
       - task: check
       - task: format
-      - task: views-baseline
+      - task: view
 
   clean:
     desc: Remove generated view output
     cmds:
-      - powershell -NoProfile -Command "if (Test-Path output/views) { Remove-Item output/views -Recurse -Force }"
+      - cmd: powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path '{{.VIEWS_DIR}}') { Remove-Item '{{.VIEWS_DIR}}' -Recurse -Force }"
+        platforms: [windows]
+      - cmd: echo "clean is not implemented for this platform." && exit 1
+        platforms: [linux, darwin]
 
   view-context-nested:
     desc: Render the lamp context view using nested rendering
     cmds:
-      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::lampContextNestedView --output-dir output/views
+      - syside viz view {{.MODEL_FILES}} --qualified-name ExampleView::lampContextNestedView --output-dir {{.VIEWS_DIR}}
 
   view-context-tree:
     desc: Render the lamp context view using tree rendering
     cmds:
-      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::lampContextTreeView --output-dir output/views
+      - syside viz view {{.MODEL_FILES}} --qualified-name ExampleView::lampContextTreeView --output-dir {{.VIEWS_DIR}}
 
   view-usecase:
     desc: Render the baseline top-level use case view
     cmds:
-      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::operateLampUseCaseView --output-dir output/views
+      - syside viz view {{.MODEL_FILES}} --qualified-name ExampleView::operateLampUseCaseView --output-dir {{.VIEWS_DIR}}
 
   view-state:
     desc: Render the baseline state-oriented view
     cmds:
-      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::lampStatesView --output-dir output/views
+      - syside viz view {{.MODEL_FILES}} --qualified-name ExampleView::lampStatesView --output-dir {{.VIEWS_DIR}}
 
   view-sequence:
-    desc: Render the lamp sequence-style interaction view
+    desc: Render the lamp turn-on sequence-style interaction view
     cmds:
-      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::turnLampOnSequenceView --output-dir output/views
+      - syside viz view {{.MODEL_FILES}} --qualified-name ExampleView::turnLampOnSequenceView --output-dir {{.VIEWS_DIR}}
 
   view-sequence-off:
     desc: Render the lamp turn-off sequence-style interaction view
     cmds:
-      - syside viz view model/model.sysml model/view.sysml --qualified-name ExampleView::turnLampOffSequenceView --output-dir output/views
+      - syside viz view {{.MODEL_FILES}} --qualified-name ExampleView::turnLampOffSequenceView --output-dir {{.VIEWS_DIR}}
 
-  views-baseline:
-    desc: Render the published baseline views in comparison order
+  view:
+    desc: Render the currently defined baseline views and update generated-view manifest
     cmds:
       - task: view-context-nested
       - task: view-context-tree
@@ -73,8 +84,40 @@ tasks:
       - task: view-state
       - task: view-sequence
       - task: view-sequence-off
+      - task: sha-generated
 
   views:
     desc: Render baseline views
     cmds:
-      - task: views-baseline
+      - task: view
+
+  sha-generated:
+    desc: Create SHA256 manifest for generated views
+    internal: true
+    cmds:
+      - task: windows:sha-dir
+        vars:
+          HASH_INPUT_DIR: "{{.VIEWS_DIR}}"
+
+  sha-output:
+    desc: Create SHA256 manifest for generated output views
+    cmds:
+      - task: sha-generated
+
+  sha-static:
+    desc: Create SHA256 manifest for static reference views
+    cmds:
+      - task: windows:sha-dir
+        vars:
+          HASH_INPUT_DIR: "{{.STATIC_VIEWS_DIR}}"
+
+  fingerprint:
+    desc: Create SHA256 manifests for existing output and static view directories
+    cmds:
+      - task: sha-output
+      - task: sha-static
+
+  verify-static:
+    desc: Compare generated views against static reference views without regenerating
+    cmds:
+      - task: windows:verify-static
