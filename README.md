@@ -4,7 +4,7 @@
 
 This baseline was recorded with:
 
-- SysIDE Modeler CLI `syside` v0.8.7
+- SysIDE Modeler CLI `syside` v0.8.6
 
 When using newer SysIDE versions, rerun the checks and view exports to see whether model validation, formatting, and visualization output have improved.
 
